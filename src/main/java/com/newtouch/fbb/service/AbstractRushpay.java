@@ -10,7 +10,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 
@@ -28,7 +31,7 @@ public abstract class AbstractRushpay {
         return orderNum<=getCommodyNumber(commodyCode);
     }
 
-    private Long getCommodyNumber(String commodyCode){
+    protected Long getCommodyNumber(String commodyCode){
 
         String redisInfo=abstractRedisUtil.getInfo(commodyCode.concat(CommonContants.COMMODY_NUMBER));
         String number =(redisInfo==null?"0":redisInfo);
@@ -41,17 +44,21 @@ public abstract class AbstractRushpay {
         String orderNo=getOrderNo();
 
         sender.doSender(buildMessage(commodyInfoList,orderNo));
-
-        commodyInfoList.stream().forEach(commodyInfo -> {
-            singleDone(commodyInfo,orderNo);
-        });
+        try{
+            commodyInfoList.stream().forEach(commodyInfo -> {
+                singleDone(commodyInfo,orderNo);
+            });
+        }catch (Throwable e){
+            //rollBack(commodyInfoList,orderNo);
+            e.printStackTrace();
+        }
 
     }
 
-    private void singleDone(CommodyInfo commodyInfo,String orderNo){
+    protected void singleDone(CommodyInfo commodyInfo,String orderNo){
         if(abstractRedisUtil.atomicSub(commodyInfo.getComodyCode().concat(CommonContants.COMMODY_NUMBER),commodyInfo.getNumber())){
             abstractRedisUtil.listInfo(orderNo.concat(CommonContants.COMMODY_CODES), commodyInfo.getComodyCode());
-            abstractRedisUtil.setInfo(orderNo.concat(CommonContants.COMMODY_CODES).concat(CommonContants.COMMODY_NUMBER),CommonContants.COMMODY_WAITING_TIME,String.valueOf(commodyInfo.getNumber()));
+            abstractRedisUtil.setInfo(orderNo.concat(CommonContants.COMMODY_CODES).concat(commodyInfo.getComodyCode()).concat(CommonContants.COMMODY_NUMBER),CommonContants.COMMODY_WAITING_TIME,String.valueOf(commodyInfo.getNumber()));
             return;
         }
         throw new RuntimeException("over");
@@ -63,6 +70,22 @@ public abstract class AbstractRushpay {
     }
 
     private void rollBack(List<CommodyInfo> commodyInfos,String orderNo){
+        Optional.ofNullable(abstractRedisUtil.getListInfo(orderNo.concat(CommonContants.COMMODY_CODES))).ifPresent(list->{
+            list.forEach(code->{
+                try{
+                    CommodyInfo currentCommodyInfo=commodyInfos.stream().filter(new Predicate<CommodyInfo>(){
+                        @Override
+                        public boolean test(CommodyInfo commodyInfo) {
+                            return code.equals(commodyInfo.getComodyCode());
+                        }
+                    }).collect(Collectors.toList()).get(0);
+                    abstractRedisUtil.atomicAdd(currentCommodyInfo.getComodyCode().concat(CommonContants.COMMODY_NUMBER),currentCommodyInfo.getNumber());
+                    abstractRedisUtil.delKey(orderNo.concat(CommonContants.COMMODY_CODES));
+                }catch(Exception e){
+
+                }
+            });
+        });
 
     }
 
@@ -76,7 +99,7 @@ public abstract class AbstractRushpay {
         return time.concat(String.valueOf(randomInt));
     }
 
-    private void checkAll(List<CommodyInfo> commodyInfoList){
+    protected void checkAll(List<CommodyInfo> commodyInfoList){
         checkOther(commodyInfoList);
         commodyInfoList.stream().forEach(commodyInfo -> {
             if(!isEnough(commodyInfo.getComodyCode(),commodyInfo.getNumber())){

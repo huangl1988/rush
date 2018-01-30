@@ -3,6 +3,7 @@ package com.newtouch.fbb.common;
 import redis.clients.jedis.*;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Created by steven on 2018/1/17.
@@ -123,6 +124,52 @@ public abstract class AbstractRedisUtil {
         }
     }
 
+    public  List<String> getListInfo(String key){
+        Jedis jedis = jedisPool.getResource();
+        Pipeline pipeline = jedis.pipelined();
+        try {
+            Response<List<String>> list=pipeline.lrange(key,0,-1);
+            try {
+                pipeline.close();
+            } catch (IOException e) {
+
+            }
+            return list.get();
+        }finally {
+
+            jedis.close();
+        }
+    }
+
+    public  void atomicAdd(String key,Long addStep){
+        Jedis jedis = jedisPool.getResource();
+        Pipeline pipeline = jedis.pipelined();
+        try {
+            pipeline.incrBy(key,addStep);
+        }finally {
+            try {
+                pipeline.close();
+            } catch (IOException e) {
+
+            }
+            jedis.close();
+        }
+    }
+
+    public  void delKey(String key){
+        Jedis jedis = jedisPool.getResource();
+        Pipeline pipeline = jedis.pipelined();
+        try {
+            pipeline.del(key);
+        }finally {
+            try {
+                pipeline.close();
+            } catch (IOException e) {
+
+            }
+            jedis.close();
+        }
+    }
 
 
 }

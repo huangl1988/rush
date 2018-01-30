@@ -21,6 +21,36 @@ public class RushPayImpl extends AbstractRushpay{
         abstractRedisUtil.init();
         this.sender=new SenderImpl();
     }
+    @Override
+    protected Long getCommodyNumber(String commodyCode){
+        return number;
+    }
+
+    private volatile Long number=10l;
+    @Override
+    protected void singleDone(CommodyInfo commodyInfo,String orderNo){
+        if(number<1){
+             throw new RuntimeException("over");
+        }
+
+        synchronized (number){
+            number--;
+        }
+        return;
+    }
+
+    protected void checkAll(List<CommodyInfo> commodyInfoList){
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        if(number<1){
+            throw new RuntimeException("not enough");
+        }
+        return;
+    }
+
 
     @Override
     public IMessage buildMessage(List<CommodyInfo> commodyInfos, String orderNo) {

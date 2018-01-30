@@ -8,14 +8,25 @@
     <artifactId>customer-batch</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>1.5.9.RELEASE</version>
+    </parent>
     <!-- https://mvnrepository.com/artifact/redis.clients/jedis -->
     <properties>
         <jedis.version>2.9.0</jedis.version>
         <java.encoding>UTF-8</java.encoding>
         <junit.version>4.12</junit.version>
         <lombok.version>1.16.18</lombok.version>
+        <lmax.disruptor>3.3.0</lmax.disruptor>
+        <conversantmedia.disruptor>1.2.11</conversantmedia.disruptor>
     </properties>
     <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
@@ -32,6 +43,18 @@
             <artifactId>junit</artifactId>
             <version>${junit.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.lmax</groupId>
+            <artifactId>disruptor</artifactId>
+            <version>${lmax.disruptor}</version>
+        </dependency>
+
+        <!-- Alternative implementation of BlockingQueue using Conversant Disruptor for AsyncAppender -->
+        <dependency>
+            <groupId>com.conversantmedia</groupId>
+            <artifactId>disruptor</artifactId>
+            <version>${conversantmedia.disruptor}</version>
         </dependency>
     </dependencies>
     <build>

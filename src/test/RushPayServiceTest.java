@@ -52,12 +52,11 @@ public class RushPayServiceTest {
         System.out.println(SenderImpl.queue.size());
         System.out.println(end-start);
     }
-
     class DemoThread implements Runnable{
 
         @Override
         public void run() {
-            rushPay.rush(infoList);
+
         }
     }
 }
