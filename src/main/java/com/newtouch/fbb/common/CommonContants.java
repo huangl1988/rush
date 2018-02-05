@@ -11,6 +11,8 @@ public class CommonContants {
 
     public static String COMMODY_CODES=":CODES";
 
+    public static String CODES="CODES:";
+
     public static Integer COMMODY_WAITING_TIME=3600;
 
     public static String TOPIC_NAME="test";

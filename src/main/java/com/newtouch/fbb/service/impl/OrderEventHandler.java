@@ -22,27 +22,27 @@ public class OrderEventHandler implements EventHandler<OrderEvent>,WorkHandler<O
 
     @Override
     public void onEvent(OrderEvent orderEvent, long sequence, boolean endOfBatch) throws Exception {
-        try{
-            System.out.println("handler:"+sequence);
-            abstractRushpay.rush(orderEvent.getCommodyInfoList());
-            orderEvent.setCode("succ");
-
-        }catch(Exception e){
-            e.printStackTrace();
-            orderEvent.setCode("error");
-        }
+//        try{
+//            System.out.println("handler:"+sequence);
+//            abstractRushpay.rush(orderEvent.getCommodyInfoList());
+//            orderEvent.setCode("succ");
+//
+//        }catch(Exception e){
+//            e.printStackTrace();
+//            orderEvent.setCode("error");
+//        }
     }
 
     @Override
     public void onEvent(OrderEvent orderEvent) throws Exception {
-        try{
-            System.out.println("handler:"+orderEvent.getUserId());
-            abstractRushpay.rush(orderEvent.getCommodyInfoList());
-            orderEvent.setCode("succ");
-
-        }catch(Exception e){
-            e.printStackTrace();
-            orderEvent.setCode("error");
-        }
+//        try{
+//            System.out.println("handler:"+orderEvent.getUserId());
+//            abstractRushpay.rush(orderEvent.getCommodyInfoList());
+//            orderEvent.setCode("succ");
+//
+//        }catch(Exception e){
+//            e.printStackTrace();
+//            orderEvent.setCode("error");
+//        }
     }
 }

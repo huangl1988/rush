@@ -1,8 +1,11 @@
 package com.newtouch.fbb.common;
 
+import com.newtouch.fbb.mode.CommodyInfo;
 import redis.clients.jedis.*;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -18,158 +21,42 @@ public abstract class AbstractRedisUtil {
         jedisPool=sJedisPool;
     }
 
-    public  boolean atomicSub(String key,Long subStep){
-        boolean flag = true;
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-       try{
-           Response<Long> response=pipeline.decrBy(key,subStep);
-           try {
-               pipeline.close();
-           } catch (IOException e) {
-               e.printStackTrace();
+    public static void pipelinePop(List<CommodyInfo> commodyInfos,Pipeline pipeline){
+
+        commodyInfos.stream().forEach(commodyInfo -> {
+            commodyInfo.setCommodyNos(pipeline.spop(CommonContants.CODES.concat(commodyInfo.getComodyCode()),commodyInfo.getNumber()));
+        });
+
+    }
+
+    public static List<Response<Long>> lock(Pipeline pipeline,String ...keys){
+        List<Response<Long>> list = new ArrayList<>();
+        for(String key:keys){
+            list.add(pipeline.setnx(key,key));
+        }
+        return list;
+    }
+
+    public static Long getSize(String key){
+        try(Jedis jedis=jedisPool.getResource();){
+            return jedis.scard(key);
+        }
+    }
+
+    public static Jedis getJedis(){
+        return jedisPool.getResource();
+    }
+
+    public void del(Pipeline pipeline, String userId) {
+        pipeline.del(userId);
+    }
+
+    public void sadd(Pipeline pipeline, List<CommodyInfo> commodyInfos) {
+       commodyInfos.stream().forEach(commodyInfo -> {
+           Iterator<String> it=commodyInfo.getCommodys().iterator();
+           while (it.hasNext()){
+               pipeline.sadd(CommonContants.CODES.concat(commodyInfo.getComodyCode()),it.next());
            }
-           if(response.get()<0){
-               pipeline = jedis.pipelined();
-               pipeline.incrBy(key,subStep);
-               flag=false;
-           }
-
-       }finally {
-
-           jedis.close();
-       }
-       return flag;
+       });
     }
-
-    public String getInfo(String key){
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-        try {
-            Response<String> response=pipeline.get(key);
-            try {
-                pipeline.close();
-            } catch (IOException e) {
-
-            }
-            return response.get();
-        }finally {
-            jedis.close();
-        }
-
-    }
-
-
-
-
-
-    public  void setInfo(String key,int second,String value){
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-        try {
-            pipeline.setex(key,second,value);
-        }finally {
-            try {
-                pipeline.close();
-            } catch (IOException e) {
-
-            }
-            jedis.close();
-        }
-    }
-
-    public  void setInfoWithNo(String key,String value){
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-        try {
-            pipeline.setnx(key,value);
-        }finally {
-            try {
-                pipeline.close();
-            } catch (IOException e) {
-
-            }
-            jedis.close();
-        }
-    }
-
-
-    public  void removeInfo(String key){
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-        try {
-            pipeline.del(key);
-        }finally {
-            try {
-                pipeline.close();
-            } catch (IOException e) {
-
-            }
-            jedis.close();
-        }
-    }
-
-    public  void listInfo(String key,String ...comodyInfos){
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-        try {
-            pipeline.lpush(key,comodyInfos);
-        }finally {
-            try {
-                pipeline.close();
-            } catch (IOException e) {
-
-            }
-            jedis.close();
-        }
-    }
-
-    public  List<String> getListInfo(String key){
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-        try {
-            Response<List<String>> list=pipeline.lrange(key,0,-1);
-            try {
-                pipeline.close();
-            } catch (IOException e) {
-
-            }
-            return list.get();
-        }finally {
-
-            jedis.close();
-        }
-    }
-
-    public  void atomicAdd(String key,Long addStep){
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-        try {
-            pipeline.incrBy(key,addStep);
-        }finally {
-            try {
-                pipeline.close();
-            } catch (IOException e) {
-
-            }
-            jedis.close();
-        }
-    }
-
-    public  void delKey(String key){
-        Jedis jedis = jedisPool.getResource();
-        Pipeline pipeline = jedis.pipelined();
-        try {
-            pipeline.del(key);
-        }finally {
-            try {
-                pipeline.close();
-            } catch (IOException e) {
-
-            }
-            jedis.close();
-        }
-    }
-
-
 }

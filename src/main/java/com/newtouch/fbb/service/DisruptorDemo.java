@@ -8,6 +8,7 @@ import com.newtouch.fbb.mode.OrderEvent;
 import com.newtouch.fbb.mq.sender.impl.SenderImpl;
 import com.newtouch.fbb.service.impl.EventPushImpl.OrderTransOneArg;
 import com.newtouch.fbb.service.impl.OrderEventHandler;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,37 +25,40 @@ public class DisruptorDemo {
 
     private static RingBuffer<OrderEvent> ringBuffer;
 
+    RestTemplate restTemplate = new RestTemplate();
+
     static{
         Executor executor=Executors.newFixedThreadPool(10);
-//        disruptor=new Disruptor<OrderEvent>(OrderEvent::new,RINGBUFFER_SIZE, executor, ProducerType.MULTI,new YieldingWaitStrategy());
-//
-//        disruptor.handleEventsWith(OrderEventHandler.getInstance()).then((event,v,l)->{
-//            event=null;
-//        });
-//        disruptor.start();
+        disruptor=new Disruptor<OrderEvent>(OrderEvent::new,RINGBUFFER_SIZE, executor, ProducerType.MULTI,new YieldingWaitStrategy());
+
+        disruptor.handleEventsWith(OrderEventHandler.getInstance()).then((event,v,l)->{
+            event=null;
+        });
+        disruptor.start();
         ringBuffer=RingBuffer.create(ProducerType.MULTI,OrderEvent::new,RINGBUFFER_SIZE,new YieldingWaitStrategy());
-        OrderEventHandler[] orderEventHandler = new OrderEventHandler[10];
-        for(int i=0;i<orderEventHandler.length;i++)
-            orderEventHandler[i]=OrderEventHandler.getInstance();
-        SequenceBarrier sb=ringBuffer.newBarrier();
-        WorkerPool workerPool=new WorkerPool(ringBuffer, sb, new ExceptionHandler() {
-            @Override
-            public void handleEventException(Throwable throwable, long l, Object o) {
+//        OrderEventHandler[] orderEventHandler = new OrderEventHandler[10];
+//        for(int i=0;i<orderEventHandler.length;i++)
+//            orderEventHandler[i]=OrderEventHandler.getInstance();
+//        SequenceBarrier sb=ringBuffer.newBarrier();
+//        WorkerPool workerPool=new WorkerPool(ringBuffer, sb, new ExceptionHandler() {
+//            @Override
+//            public void handleEventException(Throwable throwable, long l, Object o) {
+//
+//            }
+//
+//            @Override
+//            public void handleOnStartException(Throwable throwable) {
+//
+//            }
+//
+//            @Override
+//            public void handleOnShutdownException(Throwable throwable) {
+//
+//            }
+//        },orderEventHandler);
+//        ringBuffer.addGatingSequences(workerPool.getWorkerSequences());
+//        workerPool.start(executor);
 
-            }
-
-            @Override
-            public void handleOnStartException(Throwable throwable) {
-
-            }
-
-            @Override
-            public void handleOnShutdownException(Throwable throwable) {
-
-            }
-        },orderEventHandler);
-        ringBuffer.addGatingSequences(workerPool.getWorkerSequences());
-        workerPool.start(executor);
     }
 
 

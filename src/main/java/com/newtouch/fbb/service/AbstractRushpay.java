@@ -5,7 +5,10 @@ import com.newtouch.fbb.common.CommonContants;
 import com.newtouch.fbb.mode.CommodyInfo;
 import com.newtouch.fbb.mq.IMessage;
 import com.newtouch.fbb.mq.sender.IMqSender;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,60 +36,53 @@ public abstract class AbstractRushpay {
 
     protected Long getCommodyNumber(String commodyCode){
 
-        String redisInfo=abstractRedisUtil.getInfo(commodyCode.concat(CommonContants.COMMODY_NUMBER));
-        String number =(redisInfo==null?"0":redisInfo);
-        return  Long.parseLong(number);
+        Long restNumber=abstractRedisUtil.getSize(CommonContants.CODES.concat(commodyCode));
+        return restNumber==null?0:restNumber;
+
     }
 
-    public void rush(List<CommodyInfo> commodyInfoList){
+    public void rush(List<CommodyInfo> commodyInfoList,String userId){
 
         checkAll(commodyInfoList);
         String orderNo=getOrderNo();
-
-        sender.doSender(buildMessage(commodyInfoList,orderNo));
-        try{
-            commodyInfoList.stream().forEach(commodyInfo -> {
-                singleDone(commodyInfo,orderNo);
-            });
-        }catch (Throwable e){
-            //rollBack(commodyInfoList,orderNo);
-            e.printStackTrace();
-        }
-
-    }
-
-    protected void singleDone(CommodyInfo commodyInfo,String orderNo){
-        if(abstractRedisUtil.atomicSub(commodyInfo.getComodyCode().concat(CommonContants.COMMODY_NUMBER),commodyInfo.getNumber())){
-            abstractRedisUtil.listInfo(orderNo.concat(CommonContants.COMMODY_CODES), commodyInfo.getComodyCode());
-            abstractRedisUtil.setInfo(orderNo.concat(CommonContants.COMMODY_CODES).concat(commodyInfo.getComodyCode()).concat(CommonContants.COMMODY_NUMBER),CommonContants.COMMODY_WAITING_TIME,String.valueOf(commodyInfo.getNumber()));
+        try(Jedis jedis=abstractRedisUtil.getJedis(); Pipeline pipeline=jedis.pipelined();){
+            AbstractRedisUtil.lock(pipeline,userId);
+            AbstractRedisUtil.pipelinePop(commodyInfoList,pipeline);
+        }catch (IOException e){
             return;
         }
-        throw new RuntimeException("over");
-    }
-
-    @Deprecated
-    public void init(CommodyInfo commodyInfo){
-        abstractRedisUtil.setInfoWithNo(commodyInfo.getComodyCode().concat(CommonContants.COMMODY_NUMBER),"10");
-    }
-
-    private void rollBack(List<CommodyInfo> commodyInfos,String orderNo){
-        Optional.ofNullable(abstractRedisUtil.getListInfo(orderNo.concat(CommonContants.COMMODY_CODES))).ifPresent(list->{
-            list.forEach(code->{
-                try{
-                    CommodyInfo currentCommodyInfo=commodyInfos.stream().filter(new Predicate<CommodyInfo>(){
-                        @Override
-                        public boolean test(CommodyInfo commodyInfo) {
-                            return code.equals(commodyInfo.getComodyCode());
-                        }
-                    }).collect(Collectors.toList()).get(0);
-                    abstractRedisUtil.atomicAdd(currentCommodyInfo.getComodyCode().concat(CommonContants.COMMODY_NUMBER),currentCommodyInfo.getNumber());
-                    abstractRedisUtil.delKey(orderNo.concat(CommonContants.COMMODY_CODES));
-                }catch(Exception e){
-
-                }
+        try {
+           commodyInfoList.stream().forEach(commodyInfo -> {
+               commodyInfo.setCommodys(commodyInfo.getCommodyNos().get());
+               commodyInfo.setCommodyNos(null);
+               if(commodyInfo.getCommodys().size()!=commodyInfo.getNumber()){
+                   throw new RuntimeException("not enough");
+               }
             });
-        });
+            this.saveDB(commodyInfoList,orderNo,userId);
+        }catch (Exception e){
+            e.printStackTrace();
+            sender.doSender(this.buildMessage(commodyInfoList,orderNo,"roll-back"));
+            this.rollBack(commodyInfoList,orderNo,userId);
+            return;
+        }
 
+    }
+
+
+
+
+    private void rollBack(List<CommodyInfo> commodyInfos,String orderNo,String userId){
+
+        try(Jedis jedis=abstractRedisUtil.getJedis(); Pipeline pipeline=jedis.pipelined();){
+            abstractRedisUtil.del(pipeline,userId);
+            abstractRedisUtil.sadd(pipeline,commodyInfos);
+        }catch (Exception e){
+            toMail();
+        }
+    }
+
+    private void toMail() {
     }
 
     DateTimeFormatter dateTimeFormatter =DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
@@ -109,8 +105,9 @@ public abstract class AbstractRushpay {
         return ;
     }
 
-    public abstract IMessage buildMessage(List<CommodyInfo> commodyInfos,String orderNo);
+    public abstract IMessage buildMessage(List<CommodyInfo> commodyInfos,String orderNo,String topic);
 
+    public abstract void saveDB(List<CommodyInfo> commodyInfos,String orderNo,String userId);
 
     /**
      * 校验其他

@@ -42,12 +42,17 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>${junit.version}</version>
-            <scope>test</scope>
+
         </dependency>
         <dependency>
             <groupId>com.lmax</groupId>
             <artifactId>disruptor</artifactId>
             <version>${lmax.disruptor}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.atomikos</groupId>
+            <artifactId>transactions-jta</artifactId>
+            <version>4.0.6</version>
         </dependency>
 
         <!-- Alternative implementation of BlockingQueue using Conversant Disruptor for AsyncAppender -->
